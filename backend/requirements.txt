@@ -1,0 +1,31 @@
+fastapi==0.128.0
+uvicorn[standard]==0.40.0
+gunicorn>=23.0.0
+
+python-dotenv==1.2.1
+pydantic-settings==2.12.0
+PyYAML==6.0.3
+
+pandas==2.2.3
+# Core stack: flexible numpy for Python 3.11–3.13. TensorFlow is optional — see requirements-ml.txt.
+numpy>=1.26.4,<3
+pyarrow==23.0.0
+
+SQLAlchemy==2.0.46
+psycopg2-binary==2.9.11
+
+python-binance==1.0.34
+ccxt==4.2.1
+requests==2.32.5
+passlib[bcrypt]==1.7.4
+PyJWT==2.10.1
+loguru==0.7.3
+APScheduler==3.11.2
+pytest==8.3.5
+httpx>=0.27.0
+cryptography>=42.0.0
+
+scikit-learn==1.6.1
+# Phase-1 LSTM load + inference + stub bootstrap (client/server; large wheels — use Python 3.11–3.12).
+tensorflow>=2.15.0
+joblib>=1.4.0

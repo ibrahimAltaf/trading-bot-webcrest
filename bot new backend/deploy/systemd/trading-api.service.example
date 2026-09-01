@@ -1,0 +1,27 @@
+# Example systemd unit — copy to /etc/systemd/system/trading-api.service
+# Adjust User, paths (especially if folder name has spaces), and EnvironmentFile.
+#
+#   sudo cp deploy/systemd/trading-api.service.example /etc/systemd/system/trading-api.service
+#   sudo nano /etc/systemd/system/trading-api.service
+#   sudo systemctl daemon-reload && sudo systemctl enable --now trading-api
+
+[Unit]
+Description=Trading bot FastAPI (uvicorn)
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+# Backend root = directory containing src/ and models/
+WorkingDirectory=/opt/trading/bot-new-backend
+Environment=PYTHONPATH=/opt/trading/bot-new-backend
+Environment=PATH=/opt/trading/bot-new-backend/.venv/bin:/usr/bin
+# Prefer one file on VPS: .env.production (also loaded by app from project root)
+EnvironmentFile=-/opt/trading/bot-new-backend/.env.production
+ExecStart=/opt/trading/bot-new-backend/.venv/bin/uvicorn src.main:app --host 127.0.0.1 --port 6000
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

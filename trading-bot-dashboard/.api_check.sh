@@ -1,0 +1,58 @@
+base="${VITE_API_BASE_URL:-http://localhost:6000}"
+echo "BASE_URL=$base"
+
+tests=(
+"GET|/status"
+"GET|/health/db"
+"GET|/logs?limit=10"
+"GET|/exchange/_debug"
+"GET|/exchange/decisions/latest?symbol=BTCUSDT"
+"GET|/exchange/decisions/recent?symbol=BTCUSDT&limit=10"
+"GET|/exchange/logs/recent?limit=10"
+"GET|/exchange/balances"
+"GET|/exchange/balance/USDT"
+"GET|/exchange/positions/open"
+"GET|/exchange/positions/history?limit=20"
+"GET|/exchange/orders/open?symbol=BTCUSDT"
+"GET|/exchange/orders/all?symbol=BTCUSDT&limit=20"
+"GET|/exchange/trades?symbol=BTCUSDT&limit=20"
+"GET|/exchange/adaptive?symbol=BTCUSDT&timeframe=1h"
+"GET|/backtest/health"
+"GET|/backtest/strategy/info"
+"GET|/backtest/signal?symbol=BTCUSDT&timeframe=1h"
+"GET|/backtest/dataset/fingerprint?symbol=BTCUSDT&timeframe=1h"
+"GET|/backtest/runs/list?limit=5"
+"GET|/paper/price/BTCUSDT"
+"GET|/paper/positions"
+"GET|/paper/wallet"
+"GET|/strategy/adaptive?symbol=BTCUSDT&timeframe=1h"
+"GET|/strategy/adaptive-state?symbol=BTCUSDT&timeframe=1h"
+"GET|/exchange/portfolio/history?period=30d"
+"GET|/settings/scheduler"
+"GET|/exchange/balances/usdt"
+"GET|/logs/recent?limit=10"
+"OPTIONS|/exchange/order/limit-buy"
+"OPTIONS|/exchange/auto-trade"
+"OPTIONS|/live/run"
+"OPTIONS|/backtest/run"
+"OPTIONS|/backtest/validate"
+"OPTIONS|/backtest/validate/compare"
+"OPTIONS|/backtest/1"
+"OPTIONS|/paper/run"
+"OPTIONS|/paper/reset-wallet"
+"OPTIONS|/paper/close"
+"OPTIONS|/exchange/portfolio/snapshot"
+"OPTIONS|/settings/scheduler"
+)
+
+printf "%-8s %-52s %-5s %-12s\n" "METHOD" "PATH" "CODE" "STATE"
+for t in "${tests[@]}"; do
+  method="${t%%|*}"
+  path="${t#*|}"
+  code=$(curl -sS -o /dev/null -m 12 -w "%{http_code}" -X "$method" "$base$path")
+  rc=$?
+  state="REACHABLE"
+  if [ $rc -ne 0 ] || [ "$code" = "000" ]; then state="UNREACHABLE"; fi
+  if [ "$code" = "404" ]; then state="NOT_FOUND"; fi
+  printf "%-8s %-52s %-5s %-12s\n" "$method" "$path" "$code" "$state"
+done

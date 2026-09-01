@@ -1,0 +1,10 @@
+# Optional: TensorFlow (LSTM training + keras inference). Install AFTER requirements.txt:
+#   pip install -r requirements.txt
+#   pip install -r requirements-ml.txt
+#
+# Wheels vary by Python version — pip resolves a compatible release:
+#   Python 3.11–3.12: tensorflow 2.15+ typically available
+#   Python 3.13:       tensorflow 2.20+ (older pins like 2.15.1 have no wheel)
+tensorflow>=2.15.0
+joblib>=1.4.0
+optuna>=3.6.0

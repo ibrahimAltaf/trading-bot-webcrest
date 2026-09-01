@@ -1,0 +1,4 @@
+# Optional: portfolio PPO + gymnasium (install after requirements.txt)
+gymnasium>=0.29.1
+stable-baselines3>=2.3.0
+torch>=2.0.0

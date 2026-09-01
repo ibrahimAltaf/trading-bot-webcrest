@@ -1,0 +1,48 @@
+﻿{
+  "started_at": "2026-04-14T03:34:28",
+  "target_seconds": 7200,
+  "completed_seconds": 660,
+  "cycle_count": 11,
+  "per_symbol": {
+    "BTCUSDT": {
+      "ml_signal_seen": 0,
+      "action_counts": {
+        "SELL": 11
+      },
+      "final_source_counts": {
+        "ml_prioritize": 11
+      },
+      "executed_true": 0,
+      "ml_confidence_seen": 11,
+      "blocked_true": 0
+    },
+    "ETHUSDT": {
+      "ml_signal_seen": 0,
+      "action_counts": {
+        "SELL": 5,
+        "HOLD": 6
+      },    
+      "final_source_counts": {
+        "ml_rule_conflict_hold": 6,
+        "combined": 5
+      },
+      "executed_true": 0,
+      "ml_confidence_seen": 11,
+      "blocked_true": 0
+    },
+    "SOLUSDT": {
+      "ml_signal_seen": 0,
+      "action_counts": {
+        "SELL": 6,
+        "HOLD": 5
+      },
+      "final_source_counts": {
+        "ml_rule_conflict_hold": 5,
+        "combined": 6
+      },
+      "executed_true": 0,
+      "ml_confidence_seen": 11,
+      "blocked_true": 0
+    }
+  }
+}

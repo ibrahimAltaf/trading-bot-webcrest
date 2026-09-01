@@ -1,0 +1,63 @@
+# VPS production stack (docker-compose v1 compatible)
+version: "3.8"
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: trading-db
+    restart: unless-stopped
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-tradingbot}
+      POSTGRES_USER: ${POSTGRES_USER:-tradingbot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-TradingBot_VPS_2026!}
+    volumes:
+      - trading_pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tradingbot -d tradingbot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  trading-api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: trading-api
+    restart: unless-stopped
+    network_mode: host
+    depends_on:
+      - db
+    env_file:
+      - .env.docker
+    environment:
+      PYTHONPATH: /app
+      HOST: 0.0.0.0
+      PORT: "6000"
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-tradingbot}:${POSTGRES_PASSWORD:-TradingBot_VPS_2026!}@127.0.0.1:5433/${POSTGRES_DB:-tradingbot}
+    volumes:
+      - ./backend/data:/app/data
+      - ./backend/models:/app/models
+
+  trading-web:
+    build:
+      context: ./trading-bot-dashboard
+      dockerfile: Dockerfile
+    container_name: trading-web
+    restart: unless-stopped
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    extra_hosts:
+      - "host.docker.internal:172.17.0.1"
+    depends_on:
+      - trading-api
+    ports:
+      - "127.0.0.1:8090:80"
+
+volumes:
+  trading_pgdata:

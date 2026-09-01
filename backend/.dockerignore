@@ -1,0 +1,13 @@
+.venv
+venv
+__pycache__
+*.pyc
+.git
+.pytest_cache
+*.md
+.env
+.env.*
+data/local*.db
+*.dump
+backups
+evidence-exports

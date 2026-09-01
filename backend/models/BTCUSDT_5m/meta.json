@@ -1,0 +1,25 @@
+{
+  "lookback": 50,
+  "n_features": 15,
+  "feature_columns": [
+    "ret_1",
+    "ret_5",
+    "rsi_14",
+    "ema_9_rel",
+    "ema_21_rel",
+    "ema_50_rel",
+    "macd",
+    "macd_signal",
+    "macd_hist",
+    "bb_width",
+    "bb_pct",
+    "atr_14",
+    "atr_pct",
+    "vol_change",
+    "vol_ratio"
+  ],
+  "symbol": "BTCUSDT",
+  "interval": "5m",
+  "label_horizon": 5,
+  "profit_threshold": 0.004
+}

@@ -1,0 +1,28 @@
+# Install (adjust paths and User):
+#   sudo cp deploy/systemd/trading-bot-api.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now trading-bot-api
+#
+# Expects: venv at /opt/trading-bot-backend/venv, code at /opt/trading-bot-backend,
+#          .env at /opt/trading-bot-backend/.env
+
+[Unit]
+Description=Trading bot FastAPI (uvicorn)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/trading-bot-backend
+EnvironmentFile=-/opt/trading-bot-backend/.env
+ExecStart=/opt/trading-bot-backend/venv/bin/python -m uvicorn src.main:app --host 127.0.0.1 --port 8000 --workers 2
+Restart=on-failure
+RestartSec=5
+# Hardening (optional)
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

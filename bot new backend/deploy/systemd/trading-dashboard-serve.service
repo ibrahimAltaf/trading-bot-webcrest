@@ -1,0 +1,22 @@
+# Alternative to Nginx: keep dashboard on port 4173 (survives SSH logout).
+# Needs Node/npm on PATH (same as where you ran npm run build).
+#
+# sudo cp deploy/systemd/trading-dashboard-serve.service /etc/systemd/system/
+# If `npx` is not /usr/bin/npx, run: which npx   and edit ExecStart
+# sudo systemctl daemon-reload
+# sudo systemctl enable --now trading-dashboard-serve
+
+[Unit]
+Description=Trading bot dashboard (serve static dist)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/npx --yes serve@14.2.4 -s /var/www/TRADING-BOT-WEBCREST/trading-bot-dashboard/dist -l 4173 --no-clipboard
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
