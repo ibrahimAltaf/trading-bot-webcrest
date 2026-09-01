@@ -47,7 +47,11 @@ from src.safety.risk_engine import (
 def _isolated_safety_data(tmp_path, monkeypatch):
     """Point safety state files at a tmp dir per test (no cross-test bleed)."""
     monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("ADMIN_TOKEN", "test-admin-token")
     yield
+
+
+ADMIN_HEADERS = {"X-Admin-Token": "test-admin-token"}
 
 
 @pytest.fixture
@@ -244,6 +248,18 @@ class TestRiskEngine:
         assert d.approved is False
         assert "max_daily_loss" in d.reason_codes
 
+    def test_daily_loss_triggers_at_exact_boundary(self):
+        state = _State(daily_realized_pnl_usdt=-1.50)
+        eng = RiskEngine(
+            limits=RiskLimits(max_daily_loss_usdt=1.50),
+            state=state,
+            kill_switch_is_engaged=lambda: False,
+        )
+        d = eng.validate(_req())
+        assert d.approved is False
+        assert "max_daily_loss" in d.reason_codes
+        assert ">=" in (d.reasons[0] if d.reasons else "")
+
     def test_daily_orders_breach(self):
         state = _State(daily_orders_count=50)
         eng = RiskEngine(
@@ -365,6 +381,7 @@ class TestSafetyAPI:
         r = client.post(
             "/safety/kill-switch/engage",
             json={"reason": "manual audit", "by": "test"},
+            headers=ADMIN_HEADERS,
         )
         assert r.status_code == 200, r.text
         assert r.json()["engaged"] is True
@@ -375,12 +392,24 @@ class TestSafetyAPI:
         r3 = client.post(
             "/safety/kill-switch/release",
             json={"reason": "audit done", "by": "test"},
+            headers=ADMIN_HEADERS,
         )
         assert r3.status_code == 200
         assert r3.json()["engaged"] is False
 
+    def test_kill_switch_mutations_require_auth(self, client):
+        r = client.post(
+            "/safety/kill-switch/engage",
+            json={"reason": "no auth"},
+        )
+        assert r.status_code == 401
+
     def test_engage_requires_reason(self, client):
-        r = client.post("/safety/kill-switch/engage", json={"reason": ""})
+        r = client.post(
+            "/safety/kill-switch/engage",
+            json={"reason": ""},
+            headers=ADMIN_HEADERS,
+        )
         # Pydantic min_length=1 → 422
         assert r.status_code == 422
 
@@ -390,7 +419,9 @@ class TestSafetyAPI:
         assert "effective_mode" in r.json()
 
         r2 = client.post(
-            "/execution/mode", json={"mode": "shadow", "reason": "phase2a-test"}
+            "/execution/mode",
+            json={"mode": "shadow", "reason": "phase2a-test"},
+            headers=ADMIN_HEADERS,
         )
         assert r2.status_code == 200, r2.text
         assert r2.json()["mode"] == "shadow"
@@ -398,7 +429,7 @@ class TestSafetyAPI:
         r3 = client.get("/execution/mode")
         assert r3.json()["effective_mode"] == "shadow"
 
-        r4 = client.delete("/execution/mode/override")
+        r4 = client.delete("/execution/mode/override", headers=ADMIN_HEADERS)
         assert r4.status_code == 200
         assert r4.json()["removed"] is True
 
@@ -406,19 +437,27 @@ class TestSafetyAPI:
         client.post(
             "/safety/kill-switch/engage",
             json={"reason": "lock"},
+            headers=ADMIN_HEADERS,
         )
         r = client.post(
-            "/execution/mode", json={"mode": "live", "reason": "should_fail"}
+            "/execution/mode",
+            json={"mode": "live", "reason": "should_fail"},
+            headers=ADMIN_HEADERS,
         )
         assert r.status_code == 409
         # Cleanup so other tests are not affected — though autouse fixture isolates.
         client.post(
             "/safety/kill-switch/release",
             json={"reason": "cleanup"},
+            headers=ADMIN_HEADERS,
         )
 
     def test_invalid_mode_rejected(self, client):
-        r = client.post("/execution/mode", json={"mode": "dryrun"})
+        r = client.post(
+            "/execution/mode",
+            json={"mode": "dryrun"},
+            headers=ADMIN_HEADERS,
+        )
         assert r.status_code == 400
 
     def test_reconcile_endpoint(self, client):

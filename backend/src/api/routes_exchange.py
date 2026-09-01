@@ -11,7 +11,7 @@ BTC-only optimization:
 
 import json
 
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, Header, status
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any, Set
 from datetime import datetime, timedelta
@@ -19,6 +19,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, case
 
 from src.core.config import get_settings
+from src.api.deps_auth import admin_required
+from src.execution.mode import ExecutionMode, get_execution_mode
 from src.exchange.binance_spot_client import BinanceSpotClient
 from src.db.session import SessionLocal
 from src.db.models import Order as OrderModel
@@ -820,10 +822,24 @@ class AutoTradeBody(BaseModel):
     )
 
 
+def _require_admin_if_live(
+    x_admin_token: Optional[str] = Header(default=None, alias="X-Admin-Token"),
+    authorization: Optional[str] = Header(default=None, alias="Authorization"),
+) -> Optional[str]:
+    """Live-mode manual API calls require admin auth; paper/shadow remain open for audits."""
+    if get_execution_mode() != ExecutionMode.LIVE:
+        return None
+    return admin_required(
+        x_admin_token=x_admin_token,
+        authorization=authorization,
+    )
+
+
 @router.post("/auto-trade")
 def auto_trade(
     body: AutoTradeBody,
     db: Session = Depends(get_db),
+    _live_admin: Optional[str] = Depends(_require_admin_if_live),
     symbol_q: Optional[str] = Query(
         default=None,
         alias="symbol",
@@ -874,6 +890,12 @@ def auto_trade(
             (body.force_signal.strip() if body.force_signal else None)
             or (force_signal_q.strip() if force_signal_q else None)
         )
+
+        if get_execution_mode() == ExecutionMode.LIVE and eff_force:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="force_signal is not permitted in LIVE mode; use autonomous pipeline only",
+            )
 
         # Create risk config (use defaults or override)
         risk_config = RiskConfig()

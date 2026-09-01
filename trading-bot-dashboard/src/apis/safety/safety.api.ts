@@ -1,6 +1,11 @@
 import { http } from "../../lib/http";
 import type { ExecutionMode } from "../../lib/executionMode";
 
+function adminHeaders(): Record<string, string> {
+  const token = String(import.meta.env.VITE_ADMIN_TOKEN ?? "").trim();
+  return token ? { "X-Admin-Token": token } : {};
+}
+
 export type KillSwitchState = {
   engaged: boolean;
   reason?: string | null;
@@ -89,7 +94,7 @@ export const safetyApi = {
       ok: boolean;
       engaged: boolean;
       kill_switch: KillSwitchState;
-    }>("/safety/kill-switch/engage", body);
+    }>("/safety/kill-switch/engage", body, { headers: adminHeaders() });
     return r.data;
   },
 
@@ -98,7 +103,7 @@ export const safetyApi = {
       ok: boolean;
       engaged: boolean;
       kill_switch: KillSwitchState;
-    }>("/safety/kill-switch/release", body);
+    }>("/safety/kill-switch/release", body, { headers: adminHeaders() });
     return r.data;
   },
 
@@ -143,14 +148,14 @@ export const safetyApi = {
   }) => {
     const r = await http.post<
       { ok: boolean; mode: string; override?: Record<string, unknown> } & ExecutionModeSnapshot
-    >("/execution/mode", body);
+    >("/execution/mode", body, { headers: adminHeaders() });
     return r.data;
   },
 
   clearExecutionModeOverride: async () => {
     const r = await http.delete<
       { ok: boolean; removed: boolean } & ExecutionModeSnapshot
-    >("/execution/mode/override");
+    >("/execution/mode/override", { headers: adminHeaders() });
     return r.data;
   },
 
@@ -202,6 +207,7 @@ export const safetyApi = {
     const r = await http.post<Phase2CStatus & { activated: boolean }>(
       "/safety/phase2c/activate",
       body,
+      { headers: adminHeaders() },
     );
     return r.data;
   },
@@ -210,6 +216,18 @@ export const safetyApi = {
     const r = await http.post<Phase2CStatus & { activated: boolean }>(
       "/safety/phase2c/deactivate",
       body,
+      { headers: adminHeaders() },
+    );
+    return r.data;
+  },
+
+  binanceExchangeFilters: async (
+    params?: { symbols?: string },
+    signal?: AbortSignal,
+  ) => {
+    const r = await http.get<Record<string, unknown>>(
+      "/safety/binance-exchange-filters",
+      { params, signal },
     );
     return r.data;
   },

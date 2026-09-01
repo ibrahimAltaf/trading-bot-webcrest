@@ -326,11 +326,11 @@ class RiskEngine:
         self, req: OrderRequest
     ) -> Tuple[bool, Optional[str], Optional[str]]:
         loss = -float(self.state.daily_realized_pnl_usdt or 0.0)
-        if loss > self.limits.max_daily_loss_usdt:
+        if loss >= self.limits.max_daily_loss_usdt:
             return (
                 False,
                 "max_daily_loss",
-                f"daily_loss {loss:.2f} > max {self.limits.max_daily_loss_usdt:.2f}",
+                f"daily_loss {loss:.2f} >= max {self.limits.max_daily_loss_usdt:.2f}",
             )
         return True, None, None
 

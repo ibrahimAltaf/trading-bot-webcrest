@@ -20,7 +20,11 @@ def _isolated_phase2c(tmp_path, monkeypatch):
     monkeypatch.setenv("DATA_DIR", str(tmp_path))
     monkeypatch.setenv("PHASE_2C_MICRO_LIVE_ENABLED", "false")
     monkeypatch.setenv("EXECUTION_MODE", "shadow")
+    monkeypatch.setenv("ADMIN_TOKEN", "test-admin-token")
     yield
+
+
+ADMIN_HEADERS = {"X-Admin-Token": "test-admin-token"}
 
 
 class TestPhase2CGate:
@@ -152,8 +156,23 @@ class TestPhase2CAPI:
         assert "monitoring_endpoints" in body
 
     def test_activate_requires_reason(self, client):
-        r = client.post("/safety/phase2c/activate", json={})
+        r = client.post(
+            "/safety/phase2c/activate",
+            json={},
+            headers=ADMIN_HEADERS,
+        )
         assert r.status_code == 422
+
+    def test_activate_requires_admin_auth(self, client):
+        r = client.post(
+            "/safety/phase2c/activate",
+            json={"reason": "no auth"},
+        )
+        assert r.status_code == 401
+
+    def test_live_run_endpoint_disabled(self, client):
+        r = client.post("/live/run", json={"symbol": "BTCUSDT", "usdt_amount": 5})
+        assert r.status_code == 410
 
     def test_activate_and_deactivate(self, client, tmp_path, monkeypatch):
         monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 't.db'}")
@@ -166,6 +185,7 @@ class TestPhase2CAPI:
         r = client.post(
             "/safety/phase2c/activate",
             json={"reason": "test activation", "by": "pytest"},
+            headers=ADMIN_HEADERS,
         )
         assert r.status_code == 200
         assert r.json()["micro_live_enabled"] is True
@@ -173,6 +193,7 @@ class TestPhase2CAPI:
         r2 = client.post(
             "/safety/phase2c/deactivate",
             json={"reason": "test deactivation", "by": "pytest"},
+            headers=ADMIN_HEADERS,
         )
         assert r2.status_code == 200
         assert r2.json()["micro_live_enabled"] is False

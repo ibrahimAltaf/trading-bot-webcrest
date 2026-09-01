@@ -27,6 +27,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from src.api.deps_auth import admin_required
 from src.core.json_safe import finite_float, sanitize_for_json
 from src.db.session import SessionLocal
 from src.execution.mode import (
@@ -114,14 +115,20 @@ def kill_switch_state() -> Dict[str, Any]:
 
 
 @router.post("/safety/kill-switch/engage", summary="Engage kill switch")
-def kill_switch_engage(body: KillSwitchActionBody) -> Dict[str, Any]:
-    state = ks.engage(reason=body.reason, by=body.by or "api")
+def kill_switch_engage(
+    body: KillSwitchActionBody,
+    principal: str = Depends(admin_required),
+) -> Dict[str, Any]:
+    state = ks.engage(reason=body.reason, by=body.by or principal)
     return {"ok": True, "engaged": True, "kill_switch": state}
 
 
 @router.post("/safety/kill-switch/release", summary="Release kill switch")
-def kill_switch_release(body: KillSwitchActionBody) -> Dict[str, Any]:
-    state = ks.release(reason=body.reason, by=body.by or "api")
+def kill_switch_release(
+    body: KillSwitchActionBody,
+    principal: str = Depends(admin_required),
+) -> Dict[str, Any]:
+    state = ks.release(reason=body.reason, by=body.by or principal)
     return {"ok": True, "engaged": False, "kill_switch": state}
 
 
@@ -189,7 +196,10 @@ def execution_mode_get() -> Dict[str, Any]:
     "/execution/mode",
     summary="Set execution mode override (paper | shadow | live)",
 )
-def execution_mode_set(body: ExecutionModeBody) -> Dict[str, Any]:
+def execution_mode_set(
+    body: ExecutionModeBody,
+    principal: str = Depends(admin_required),
+) -> Dict[str, Any]:
     try:
         target = ExecutionMode.coerce(body.mode)
     except ValueError as exc:
@@ -207,7 +217,7 @@ def execution_mode_set(body: ExecutionModeBody) -> Dict[str, Any]:
 
     doc = set_execution_mode(
         target,
-        changed_by=body.by or "api",
+        changed_by=body.by or principal,
         reason=body.reason or "",
     )
     return {"ok": True, "mode": target.value, "override": doc, **mode_snapshot()}
@@ -217,7 +227,9 @@ def execution_mode_set(body: ExecutionModeBody) -> Dict[str, Any]:
     "/execution/mode/override",
     summary="Clear runtime mode override (fall back to env / legacy)",
 )
-def execution_mode_clear_override() -> Dict[str, Any]:
+def execution_mode_clear_override(
+    _principal: str = Depends(admin_required),
+) -> Dict[str, Any]:
     removed = clear_execution_mode_override()
     return {"ok": True, "removed": removed, **mode_snapshot()}
 
@@ -1347,9 +1359,13 @@ def phase2c_evidence(
 
 @router.post(
     "/safety/phase2c/activate",
-    summary="Enable Phase 2C micro-live (admin — does NOT switch execution mode)",
+    summary="Enable Phase 2C micro-live (authenticated admin only)",
 )
-def phase2c_activate(body: Phase2CActionBody) -> Dict[str, Any]:
+def phase2c_activate(
+    body: Phase2CActionBody,
+    principal: str = Depends(admin_required),
+) -> Dict[str, Any]:
+    from src.exchange.runtime_keys import get_overlay_snapshot, resolve_runtime_keys
     from src.safety import phase2c as p2c
 
     if ks.is_engaged():
@@ -1357,16 +1373,80 @@ def phase2c_activate(body: Phase2CActionBody) -> Dict[str, Any]:
             status_code=status.HTTP_409_CONFLICT,
             detail="kill switch engaged; release before activating micro-live",
         )
-    snap = p2c.activate(by=body.by or "api", reason=body.reason)
+
+    keys = resolve_runtime_keys()
+    overlay = get_overlay_snapshot()
+    if not keys.testnet and not overlay.get("encryption_available"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "SECRETS_ENCRYPTION_KEY must be configured before mainnet micro-live "
+                "activation (Binance API secret must not be stored in plaintext)"
+            ),
+        )
+
+    snap = p2c.activate(by=body.by or principal, reason=body.reason)
     return {"ok": True, "activated": True, **snap}
 
 
 @router.post(
     "/safety/phase2c/deactivate",
-    summary="Disable Phase 2C micro-live",
+    summary="Disable Phase 2C micro-live (authenticated admin only)",
 )
-def phase2c_deactivate(body: Phase2CActionBody) -> Dict[str, Any]:
+def phase2c_deactivate(
+    body: Phase2CActionBody,
+    principal: str = Depends(admin_required),
+) -> Dict[str, Any]:
     from src.safety import phase2c as p2c
 
-    snap = p2c.deactivate(by=body.by or "api", reason=body.reason)
+    snap = p2c.deactivate(by=body.by or principal, reason=body.reason)
     return {"ok": True, "activated": False, **snap}
+
+
+@router.get(
+    "/safety/binance-exchange-filters",
+    summary="Live Binance Spot filter validation for Phase 2C symbols (read-only)",
+)
+def binance_exchange_filters(
+    symbols: Optional[str] = "BTCUSDT,ETHUSDT,SOLUSDT",
+) -> Dict[str, Any]:
+    """Returns actual exchange MIN_NOTIONAL, LOT_SIZE, stepSize vs configured caps."""
+    from src.exchange.binance_spot_client import BinanceSpotClient
+    from src.safety.risk_engine import default_limits_from_env
+
+    syms = [s.strip().upper() for s in (symbols or "").split(",") if s.strip()]
+    limits = default_limits_from_env()
+    out: Dict[str, Any] = {}
+    try:
+        client = BinanceSpotClient()
+    except Exception as exc:
+        return {"ok": False, "error": str(exc), "symbols": {}}
+
+    for sym in syms:
+        try:
+            f = client.get_symbol_filters(sym)
+            min_n = float(f.get("minNotional") or 0)
+            configured_max = float(limits.max_trade_notional_usdt)
+            out[sym] = {
+                "minNotional_usdt": min_n,
+                "minQty": f.get("minQty"),
+                "stepSize": f.get("stepSize"),
+                "tickSize": f.get("tickSize"),
+                "configured_max_trade_notional_usdt": configured_max,
+                "configured_min_order_notional_usdt": float(
+                    limits.min_order_notional_usdt
+                ),
+                "valid_at_5_usdt": min_n <= 5.0 <= configured_max,
+                "execution_uses_exchange_filters": True,
+            }
+        except Exception as exc:
+            out[sym] = {"error": str(exc)[:200]}
+
+    return {
+        "ok": True,
+        "note": (
+            "Live orders use BinanceSpotClient.get_symbol_filters() + normalize_limit() "
+            "at execution time; internal RISK_* caps are an additional layer."
+        ),
+        "symbols": out,
+    }

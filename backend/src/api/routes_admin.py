@@ -32,6 +32,7 @@ from typing import Any, Dict, Optional
 from fastapi import APIRouter, Header, HTTPException, status
 from pydantic import BaseModel, Field
 
+from src.api.deps_auth import admin_required
 from src.exchange.runtime_keys import (
     clear_overlay,
     get_overlay_snapshot,
@@ -43,36 +44,8 @@ from src.exchange.runtime_keys import (
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
-# ----------------------------- auth ------------------------------------------
-
-
-def _admin_required(
-    x_admin_token: Optional[str] = Header(default=None, alias="X-Admin-Token"),
-    authorization: Optional[str] = Header(default=None, alias="Authorization"),
-) -> str:
-    """Require either ADMIN_TOKEN match or a valid JWT. Returns the principal id."""
-    expected = (os.getenv("ADMIN_TOKEN") or "").strip()
-    if expected and x_admin_token and x_admin_token.strip() == expected:
-        return "admin-token"
-
-    if authorization and authorization.startswith("Bearer "):
-        try:
-            from src.core.auth import decode_access_token
-
-            token = authorization.replace("Bearer ", "").strip()
-            payload = decode_access_token(token)
-            if payload and "sub" in payload:
-                return f"user:{payload['sub']}"
-        except Exception:
-            pass
-
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail=(
-            "admin auth required: provide X-Admin-Token (matching ADMIN_TOKEN env) "
-            "or Authorization: Bearer <jwt>"
-        ),
-    )
+# Re-export for backwards compatibility within this module.
+_admin_required = admin_required
 
 
 # ----------------------------- models ----------------------------------------
