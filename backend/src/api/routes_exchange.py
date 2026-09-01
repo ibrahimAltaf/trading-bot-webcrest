@@ -676,34 +676,30 @@ class LimitSellBody(BaseModel):
     quantity: str = Field(..., description="Quantity as string, e.g. '0.001'")
 
 
-@router.post("/order/limit-buy")
-def place_limit_buy(body: LimitBuyBody):
-    """Place a limit buy order"""
-    try:
-        client = BinanceSpotClient()
-        res = client.create_order_limit_buy(
-            symbol=body.symbol,
-            price=body.price,
-            quantity=body.quantity,
-        )
-        return {"ok": True, "order": res}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+@router.post("/order/limit-buy", summary="DISABLED — use AutoTradeEngine path")
+def place_limit_buy_disabled(body: LimitBuyBody):
+    """Legacy manual limit buy — disabled for Phase 2C (bypassed RiskEngine)."""
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail=(
+            "POST /exchange/order/limit-buy is disabled for Phase 2C. "
+            "All live order placement must use the centralized AutoTradeEngine path "
+            "(scheduler or authenticated POST /exchange/auto-trade)."
+        ),
+    )
 
 
-@router.post("/order/limit-sell")
-def place_limit_sell(body: LimitSellBody):
-    """Place a limit sell order"""
-    try:
-        client = BinanceSpotClient()
-        res = client.create_order_limit_sell(
-            symbol=body.symbol,
-            price=body.price,
-            quantity=body.quantity,
-        )
-        return {"ok": True, "order": res}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+@router.post("/order/limit-sell", summary="DISABLED — use AutoTradeEngine path")
+def place_limit_sell_disabled(body: LimitSellBody):
+    """Legacy manual limit sell — disabled for Phase 2C (bypassed RiskEngine)."""
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail=(
+            "POST /exchange/order/limit-sell is disabled for Phase 2C. "
+            "All live order placement must use the centralized AutoTradeEngine path "
+            "(scheduler or authenticated POST /exchange/auto-trade)."
+        ),
+    )
 
 
 class CancelOrderBody(BaseModel):
@@ -711,15 +707,16 @@ class CancelOrderBody(BaseModel):
     order_id: int = Field(..., description="Order ID to cancel")
 
 
-@router.post("/order/cancel")
-def cancel_order(body: CancelOrderBody):
-    """Cancel an open order"""
-    try:
-        client = BinanceSpotClient()
-        res = client.cancel_order(symbol=body.symbol, order_id=body.order_id)
-        return {"ok": True, "cancelled": res}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+@router.post("/order/cancel", summary="DISABLED — use AutoTradeEngine path")
+def cancel_order_disabled(body: CancelOrderBody):
+    """Legacy manual cancel — disabled for Phase 2C (bypassed RiskEngine)."""
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail=(
+            "POST /exchange/order/cancel is disabled for Phase 2C. "
+            "Order lifecycle must go through the centralized AutoTradeEngine path."
+        ),
+    )
 
 
 @router.get("/order")

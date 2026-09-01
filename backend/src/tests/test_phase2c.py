@@ -174,6 +174,23 @@ class TestPhase2CAPI:
         r = client.post("/live/run", json={"symbol": "BTCUSDT", "usdt_amount": 5})
         assert r.status_code == 410
 
+    def test_legacy_order_endpoints_disabled(self, client):
+        r1 = client.post(
+            "/exchange/order/limit-buy",
+            json={"symbol": "BTCUSDT", "price": "50000", "quantity": "0.0001"},
+        )
+        assert r1.status_code == 410
+        r2 = client.post(
+            "/exchange/order/limit-sell",
+            json={"symbol": "BTCUSDT", "price": "50000", "quantity": "0.0001"},
+        )
+        assert r2.status_code == 410
+        r3 = client.post(
+            "/exchange/order/cancel",
+            json={"symbol": "BTCUSDT", "order_id": 1},
+        )
+        assert r3.status_code == 410
+
     def test_activate_and_deactivate(self, client, tmp_path, monkeypatch):
         monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 't.db'}")
         from src.db.session import engine
@@ -197,3 +214,66 @@ class TestPhase2CAPI:
         )
         assert r2.status_code == 200
         assert r2.json()["micro_live_enabled"] is False
+
+
+class TestLiveMinNotionalReject:
+    """Live path must not bump spend above max cap to satisfy exchange MIN_NOTIONAL."""
+
+    def test_live_buy_rejects_when_spend_below_min_notional(
+        self, tmp_path, monkeypatch
+    ):
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from sqlalchemy.pool import StaticPool
+
+        from src.db.base import Base
+        import src.db.models  # noqa
+        from src.live.auto_trade_engine import AutoTradeEngine
+        from src.safety import phase2c as p2c
+
+        monkeypatch.setenv("DATA_DIR", str(tmp_path))
+        monkeypatch.setenv("EXECUTION_MODE", "live")
+        monkeypatch.setenv("RISK_MAX_TRADE_NOTIONAL_USDT", "5")
+        p2c.activate(by="test", reason="unit")
+
+        class _FakeClient:
+            placed = 0
+
+            def account(self):
+                return {"balances": [{"asset": "USDT", "free": "100"}]}
+
+            def get_symbol_filters(self, symbol):
+                return {"minNotional": 5.0, "stepSize": 0.00001, "tickSize": 0.01}
+
+            def create_order_market_buy(self, **_kw):
+                self.placed += 1
+                raise AssertionError("must not place order when below minNotional")
+
+        fake = _FakeClient()
+        monkeypatch.setattr(
+            "src.live.auto_trade_engine.BinanceSpotClient",
+            lambda *a, **k: fake,
+        )
+
+        engine = create_engine(
+            "sqlite://",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        Base.metadata.create_all(engine)
+        db = sessionmaker(bind=engine)()
+
+        eng = AutoTradeEngine(db=db)
+        eng.execution_mode = "live"
+        eng.client = fake
+        monkeypatch.setattr(
+            eng,
+            "_position_size_from_risk",
+            lambda **kw: (True, 0.00003, 3.0, "ok"),
+        )
+
+        result = eng._execute_buy(symbol="BTCUSDT", price=100000.0, risk_pct=0.01)
+        assert result.executed is False
+        assert "minNotional" in (result.reason or "")
+        assert fake.placed == 0
+        db.close()

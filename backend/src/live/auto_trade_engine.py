@@ -2442,18 +2442,38 @@ class AutoTradeEngine:
             )
             min_notional = 0.0
 
-        if min_notional > 0:
-            target_spend = max(float(spend), min_notional)
-        else:
-            target_spend = float(spend)
-
         try:
             from src.safety.risk_engine import default_limits_from_env
 
             max_cap = float(default_limits_from_env().max_trade_notional_usdt)
-            target_spend = min(float(target_spend), max_cap)
         except Exception:
-            pass
+            max_cap = 0.0
+
+        spend_f = float(spend)
+        if min_notional > 0 and spend_f < min_notional:
+            return TradeResult(
+                success=True,
+                executed=False,
+                signal="BUY",
+                reason=(
+                    f"exchange minNotional ({min_notional:.2f}) exceeds "
+                    f"requested spend ({spend_f:.2f}); order not increased"
+                ),
+                balance_before=balance,
+            )
+
+        target_spend = spend_f
+        if max_cap > 0 and target_spend > max_cap:
+            return TradeResult(
+                success=True,
+                executed=False,
+                signal="BUY",
+                reason=(
+                    f"requested spend ({target_spend:.2f}) exceeds "
+                    f"max_trade_notional ({max_cap:.2f})"
+                ),
+                balance_before=balance,
+            )
 
         # Can't spend more than balance
         if target_spend > balance:
