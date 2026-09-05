@@ -46,5 +46,14 @@ npm-debug.log*
 *.tar.gz
 .pytest_tmp/
 backups/
+
+# Operator scripts holding VPS credentials — never commit
+scripts/deploy_fix_vps.py
+scripts/deploy_saad_security.py
+scripts/patch_all_vps.py
+scripts/quick_patch_vps.py
+scripts/recover_api_vps.py
+scripts/debug_api_vps.py
+scripts/verify_saad_final.py
 **/data/safety/
 backend/data/*.db
