@@ -39,7 +39,7 @@ Thumbs.db
 npm-debug.log*
 
 # Data (optional local datasets — uncomment if you never want data in git)
-# bot new backend/data/
+# backend/data/
 
 # Deploy / local artifacts
 .env.docker

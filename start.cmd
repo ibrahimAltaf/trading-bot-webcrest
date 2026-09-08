@@ -5,7 +5,7 @@ echo ==========================================
 echo Setting up backend virtual environment...
 echo ==========================================
 
-cd /d "%~dp0bot new backend"
+cd /d "%~dp0backend"
 
 IF NOT EXIST ".venv" (
     echo Creating .venv...
@@ -30,7 +30,7 @@ echo ==========================================
 echo Starting backend...
 echo ==========================================
 
-start "Backend Server" cmd /k "cd /d ""%~dp0bot new backend"" && call .venv\Scripts\activate.bat && set PYTHONPATH=. && uvicorn src.main:app --reload --host 127.0.0.1 --port 6000"
+start "Backend Server" cmd /k "cd /d ""%~dp0backend"" && call .venv\Scripts\activate.bat && set PYTHONPATH=. && uvicorn src.main:app --reload --host 127.0.0.1 --port 6000"
 
 echo ==========================================
 echo Starting frontend...
