@@ -174,6 +174,20 @@ class TestPhase2CAPI:
         r = client.post("/live/run", json={"symbol": "BTCUSDT", "usdt_amount": 5})
         assert r.status_code == 410
 
+    def test_force_signal_forbidden_in_live_mode(self, client, monkeypatch):
+        """Manual/forced entries must be impossible once the system is LIVE."""
+        monkeypatch.setattr(
+            "src.api.routes_exchange.get_execution_mode",
+            lambda: ExecutionMode.LIVE,
+        )
+        r = client.post(
+            "/exchange/auto-trade",
+            json={"symbol": "BTCUSDT", "force_signal": "BUY"},
+            headers=ADMIN_HEADERS,
+        )
+        assert r.status_code == 403
+        assert "force_signal" in r.json()["detail"]
+
     def test_legacy_order_endpoints_disabled(self, client):
         r1 = client.post(
             "/exchange/order/limit-buy",
@@ -214,6 +228,76 @@ class TestPhase2CAPI:
         )
         assert r2.status_code == 200
         assert r2.json()["micro_live_enabled"] is False
+
+
+class TestDecisionTimestampFormat:
+    """Decision timestamps are stored naive-UTC; the API must state the offset.
+
+    Without a designator a client is free to read the value as local time, which
+    shifts reported decision times by the reader's UTC offset.
+    """
+
+    def test_iso_utc_tags_naive_datetime_as_utc(self):
+        from datetime import datetime, timedelta, timezone
+
+        from src.core.json_safe import iso_utc
+
+        assert iso_utc(None) is None
+
+        naive = datetime(2026, 9, 10, 2, 30, 0)
+        assert iso_utc(naive) == "2026-09-10T02:30:00Z"
+
+        aware = datetime(2026, 9, 10, 7, 30, 0, tzinfo=timezone(timedelta(hours=5)))
+        assert iso_utc(aware) == "2026-09-10T02:30:00Z"
+
+    def test_recent_decisions_timestamp_is_utc_designated(self, tmp_path, monkeypatch):
+        from datetime import datetime
+
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from sqlalchemy.pool import StaticPool
+
+        from src.db.base import Base
+        from src.db.models import TradingDecisionLog
+        import src.db.models  # noqa
+
+        pytest.importorskip("binance")
+        from fastapi.testclient import TestClient
+
+        from src.api import routes_exchange as rx
+        from src.main import app
+
+        engine = create_engine(
+            "sqlite://",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        Base.metadata.create_all(engine)
+        factory = sessionmaker(bind=engine, expire_on_commit=False)
+
+        db = factory()
+        db.add(
+            TradingDecisionLog(
+                symbol="BTCUSDT",
+                timeframe="1h",
+                action="HOLD",
+                confidence=0.5,
+                regime="RANGE",
+                price=60000.0,
+                reason="seeded for timestamp format assertion",
+                ts=datetime(2026, 9, 10, 2, 30, 0),
+            )
+        )
+        db.commit()
+        db.close()
+
+        monkeypatch.setattr(rx, "SessionLocal", factory)
+        r = TestClient(app).get("/exchange/decisions/recent?limit=1")
+        assert r.status_code == 200, r.text
+
+        items = r.json()["decisions"]
+        assert items, "expected the seeded decision row"
+        assert items[0]["timestamp"] == "2026-09-10T02:30:00Z"
 
 
 class TestLiveMinNotionalReject:

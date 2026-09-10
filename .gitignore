@@ -47,13 +47,32 @@ npm-debug.log*
 .pytest_tmp/
 backups/
 
+# Retired pre-Phase-2C backend. Removed from the repo and excluded from the
+# Docker build (context is ./backend); ignored so it can never be re-added.
+bot new backend/
+
 # Operator scripts holding VPS credentials — never commit
+scripts/build_control.py
+scripts/build_final_clean.py
+scripts/build_poll.py
+scripts/build_restart_clean.py
+scripts/check_clientcon_remote.py
+scripts/cleanup_obsolete_vps.py
+scripts/debug_api_vps.py
+scripts/deploy_and_verify_ca6a638.py
 scripts/deploy_fix_vps.py
 scripts/deploy_saad_security.py
 scripts/patch_all_vps.py
 scripts/quick_patch_vps.py
+scripts/rebuild_from_commit.py
 scripts/recover_api_vps.py
-scripts/debug_api_vps.py
+scripts/round6_configure.py
+scripts/round6_inspect.py
+scripts/round6_locate.py
+scripts/round6_verify.py
+scripts/verify_image_content.py
+scripts/verify_prod_commit.py
 scripts/verify_saad_final.py
+scripts/vps_state_check.py
 **/data/safety/
 backend/data/*.db

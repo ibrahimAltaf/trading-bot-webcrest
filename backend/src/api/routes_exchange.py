@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, case
 
 from src.core.config import get_settings
+from src.core.json_safe import iso_utc
 from src.api.deps_auth import admin_required
 from src.execution.mode import ExecutionMode, get_execution_mode
 from src.exchange.binance_spot_client import BinanceSpotClient
@@ -87,7 +88,7 @@ def _order_dict_from_db_row(row: OrderModel, *, mode: str) -> Dict[str, Any]:
         "status": (row.status or "FILLED").upper(),
         "type": row.order_type or "MARKET",
         "execution_mode": mode,
-        "timestamp": row.created_at.isoformat() if row.created_at else None,
+        "timestamp": iso_utc(row.created_at),
     }
 
 
@@ -926,6 +927,9 @@ def auto_trade(
             "position_id": result.position_id,
         }
 
+    except HTTPException:
+        # Gate rejections (e.g. force_signal in LIVE) must keep their own status.
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -1008,7 +1012,7 @@ def get_open_positions(
                 "symbol": p.symbol,
                 "entry_price": p.entry_price,
                 "entry_qty": p.entry_qty,
-                "entry_ts": p.entry_ts.isoformat() if p.entry_ts else None,
+                "entry_ts": iso_utc(p.entry_ts),
                 "current_price": px(p.symbol),
                 "unrealized_pnl": (
                     (px(p.symbol) - float(p.entry_price or 0)) * float(p.entry_qty or 0)
@@ -1062,10 +1066,10 @@ def get_position_history(
                 "symbol": p.symbol,
                 "entry_price": p.entry_price,
                 "entry_qty": p.entry_qty,
-                "entry_ts": p.entry_ts.isoformat() if p.entry_ts else None,
+                "entry_ts": iso_utc(p.entry_ts),
                 "exit_price": p.exit_price,
                 "exit_qty": p.exit_qty,
-                "exit_ts": p.exit_ts.isoformat() if p.exit_ts else None,
+                "exit_ts": iso_utc(p.exit_ts),
                 "pnl": p.pnl,
                 "pnl_pct": p.pnl_pct,
             }
@@ -1126,7 +1130,7 @@ def get_recent_logs(
                 "category": l.category,
                 "message": l.message,
                 "symbol": l.symbol,
-                "ts": l.ts.isoformat() if l.ts else None,
+                "ts": iso_utc(l.ts),
             }
             for l in logs
         ],
@@ -1213,7 +1217,7 @@ def get_recent_decisions(
                 "timeframe": d.timeframe,
                 "regime": d.regime,
                 "price": round(d.price, 2) if d.price is not None else None,
-                "timestamp": d.ts.isoformat() if d.ts else None,
+                "timestamp": iso_utc(d.ts),
                 "indicators": {
                     "adx": round(d.adx, 2) if d.adx is not None else None,
                     "ema_fast": (
@@ -1336,7 +1340,7 @@ def get_latest_decision(
             "timeframe": decision.timeframe,
             "regime": decision.regime,
             "price": (round(decision.price, 2) if decision.price is not None else None),
-            "timestamp": decision.ts.isoformat() if decision.ts else None,
+            "timestamp": iso_utc(decision.ts),
             "indicators": {
                 "adx": round(decision.adx, 2) if decision.adx else None,
                 "ema_fast": round(decision.ema_fast, 2) if decision.ema_fast else None,
@@ -1601,7 +1605,7 @@ def exchange_proof(
             "count": int(trades_res.get("count", 0)),
             "recent": trades_res.get("trades", []),
             "last_trade_ts": (
-                last_trade.ts.isoformat() if last_trade and last_trade.ts else None
+                iso_utc(last_trade.ts) if last_trade else None
             ),
         },
         "performance": {
@@ -1612,7 +1616,7 @@ def exchange_proof(
             "recent_count": int(recent_logs_res.get("count", 0)),
             "recent": recent_logs_res.get("logs", []),
             "last_event_ts": (
-                last_event.ts.isoformat() if last_event and last_event.ts else None
+                iso_utc(last_event.ts) if last_event else None
             ),
         },
         "paper_trading": {
