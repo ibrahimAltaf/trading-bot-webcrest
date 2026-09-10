@@ -69,6 +69,7 @@ scripts/recover_api_vps.py
 scripts/round6_configure.py
 scripts/round6_inspect.py
 scripts/round6_locate.py
+scripts/round6_sched.py
 scripts/round6_verify.py
 scripts/verify_image_content.py
 scripts/verify_prod_commit.py

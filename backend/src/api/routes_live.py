@@ -18,7 +18,7 @@ class LiveIn(BaseModel):
 
 
 @router.post("/run", summary="DISABLED — use /exchange/auto-trade (authenticated)")
-def run_live_disabled(body: LiveIn):
+def run_live_disabled():
     raise HTTPException(
         status_code=status.HTTP_410_GONE,
         detail=(

@@ -678,7 +678,7 @@ class LimitSellBody(BaseModel):
 
 
 @router.post("/order/limit-buy", summary="DISABLED — use AutoTradeEngine path")
-def place_limit_buy_disabled(body: LimitBuyBody):
+def place_limit_buy_disabled():
     """Legacy manual limit buy — disabled for Phase 2C (bypassed RiskEngine)."""
     raise HTTPException(
         status_code=status.HTTP_410_GONE,
@@ -691,7 +691,7 @@ def place_limit_buy_disabled(body: LimitBuyBody):
 
 
 @router.post("/order/limit-sell", summary="DISABLED — use AutoTradeEngine path")
-def place_limit_sell_disabled(body: LimitSellBody):
+def place_limit_sell_disabled():
     """Legacy manual limit sell — disabled for Phase 2C (bypassed RiskEngine)."""
     raise HTTPException(
         status_code=status.HTTP_410_GONE,
@@ -709,7 +709,7 @@ class CancelOrderBody(BaseModel):
 
 
 @router.post("/order/cancel", summary="DISABLED — use AutoTradeEngine path")
-def cancel_order_disabled(body: CancelOrderBody):
+def cancel_order_disabled():
     """Legacy manual cancel — disabled for Phase 2C (bypassed RiskEngine)."""
     raise HTTPException(
         status_code=status.HTTP_410_GONE,

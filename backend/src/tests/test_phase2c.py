@@ -205,6 +205,22 @@ class TestPhase2CAPI:
         )
         assert r3.status_code == 410
 
+    def test_retired_endpoints_return_410_for_any_payload(self, client):
+        """A retired route must not validate a body it will never use.
+
+        Body validation runs before the handler, so a probe with a mismatched
+        payload would otherwise get 422 and read as 'endpoint still live'.
+        """
+        for path in (
+            "/live/run",
+            "/exchange/order/limit-buy",
+            "/exchange/order/limit-sell",
+            "/exchange/order/cancel",
+        ):
+            for payload in ({}, {"unexpected": "field"}, {"price": 10000, "qty": 0.001}):
+                r = client.post(path, json=payload)
+                assert r.status_code == 410, f"{path} with {payload} -> {r.status_code}"
+
     def test_activate_and_deactivate(self, client, tmp_path, monkeypatch):
         monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 't.db'}")
         from src.db.session import engine
