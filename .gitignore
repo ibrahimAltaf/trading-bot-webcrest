@@ -70,6 +70,10 @@ scripts/round6_configure.py
 scripts/round6_inspect.py
 scripts/round6_locate.py
 scripts/round6_sched.py
+scripts/round6_fetchcheck.py
+scripts/round6_deploy.py
+scripts/round6_finalize.py
+scripts/round6_final_verify.py
 scripts/round6_verify.py
 scripts/verify_image_content.py
 scripts/verify_prod_commit.py
