@@ -5,19 +5,33 @@ from datetime import datetime, timedelta
 from typing import Any, Optional
 
 import jwt
-from passlib.context import CryptContext
 
 from src.core.config import get_settings
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+try:
+    # passlib 1.7.4 breaks with bcrypt>=4.1 (detect_wrap_bug / __about__).
+    # Prefer direct bcrypt; fall back to passlib when available.
+    import bcrypt
 
+    def hash_password(plain: str) -> str:
+        return bcrypt.hashpw(plain.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
-def hash_password(plain: str) -> str:
-    return pwd_context.hash(plain)
+    def verify_password(plain: str, hashed: str) -> bool:
+        try:
+            return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
+        except Exception:
+            return False
 
+except Exception:  # pragma: no cover
+    from passlib.context import CryptContext
 
-def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+    def hash_password(plain: str) -> str:
+        return pwd_context.hash(plain)
+
+    def verify_password(plain: str, hashed: str) -> bool:
+        return pwd_context.verify(plain, hashed)
 
 
 def create_access_token(sub: str, payload: Optional[dict] = None) -> str:
