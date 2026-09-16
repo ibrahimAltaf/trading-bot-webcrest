@@ -92,5 +92,17 @@ scripts/mainnet_hist.py
 scripts/mainnet_keys_apply.py
 scripts/mainnet_fresh_verify.py
 scripts/mainnet_bal_list.py
+scripts/ensure_saad_login.py
+scripts/ensure_saad_login2.py
+scripts/debug_login.py
+scripts/fix_login_final.py
+scripts/fix_login_restart.py
+scripts/test_login_http.py
+scripts/find_dash_url.py
+scripts/find_dash_url2.py
+scripts/find_dash_url3.py
+scripts/dash_url_check.py
+scripts/dash_debug.py
+scripts/dash_quick.py
 **/data/safety/
 backend/data/*.db
